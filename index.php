@@ -1,12 +1,26 @@
-<?php
-use Ratchet\Server\IoServer;
-use SocketWar\Chat;
+<!DOCTYPE html>
 
-require 'vendor/autoload.php';
+<html lang="en">
 
-$server = IoServer::factory(
-	new Chat()
-  , 8080
-);
+	<head>
+		<title>SocketWar</title>
 
-$server->run();
+		<script>
+			var conn = new WebSocket('ws://localhost:8080');
+			conn.onopen = function(e) {
+				console.log("Connection established!");
+			};
+
+			conn.onmessage = function(e) {
+				console.log(e.data);
+			};
+		</script>
+
+	</head>
+	<body>
+
+
+	</body>
+
+</html>
+
