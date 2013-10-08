@@ -1,4 +1,4 @@
-/**
+
 /**
  * Our SocketWar game controller!
  */
@@ -7,25 +7,38 @@ var SocketWar = (function(){
 	var _grid = null, _webSocket, _myPlayer;
 	
 	var _init = function(){
-			
 		if(!Modernizr.websockets){
 			alert('Your browser does not support Web Sockets! You have not business here!');
 			return;
 		}
+		_prepareCharacter('b4');
+		_setupWebSocket();
+	}
 	
-		//Let's initialize our WebSocket object. This does not open the connection.
-		_webSocket = new WebSocket("ws://localhost:8080");
-		
-		var playerType = 'd3';
-		_myPlayer = new SocketWar.Player(playerType + ' myself');
+	var _prepareCharacter = function(fighter){
+		_myPlayer = new SocketWar.Player(fighter + ' myself');
 		_grid = new SocketWar.Grid('#playground', 6, 14);
 		_grid.addPlayer(_myPlayer);
+	}
+	
+	var _setupWebSocket = function(){
+		//With the player selected, let's initialize our WebSocket object. 
+		_webSocket = new WebSocket("ws://localhost:8080");
 		
-		SocketWar.KeyboardController.listenKeys(_onKeyEvent);
+		_webSocket.onopen = function(e){
+			SocketWar.KeyboardController.captureKeys(_onKeyCapture);
+		}
 		
+		_webSocket.onclose = function(e){
+			SocketWar.KeyboardController.releaseKeys();
+		}
+		
+		_webSocket.onerror = function(e){
+			alert('Error connecting! You lose!');
+		}
 	}
 		
-	var _onKeyEvent = function(direction){
+	var _onKeyCapture = function(direction){
 		if(direction === 'shot'){
 			return false;
 		}
@@ -95,7 +108,7 @@ SocketWar.Grid.prototype = (function(){
 		}
 		
 		this._playground.append(player.getDomObject());
-		return _positionatePlayer.apply(this, [player, position]);
+		return _positionatePlayer.call(this, player, position);
 		
 	}
 	
@@ -129,7 +142,7 @@ SocketWar.Grid.prototype = (function(){
 		}
 		
 		this._players[player.getId()].position = newPosition;
-		return _positionatePlayer.apply(this, [player, newPosition]);
+		return _positionatePlayer.call(this, player, newPosition);
 		
 	}
 	
@@ -205,9 +218,14 @@ SocketWar.KeyboardController = (function(){
 	/**
 	 * Let's start the game
 	 */
-	var _listenKeys = function(callback){
+	var _captureKeys = function(callback){
 		$(document).keydown(_onKeyDown).keyup(_onKeyUp);
 		_callback = callback;
+	}
+	
+	var _releaseKeys = function(){
+		_callback = null;
+		$(document).off('keydown keyup');
 	}
 
 	var _onKeyDown = function(e){
@@ -231,7 +249,8 @@ SocketWar.KeyboardController = (function(){
 	}
 	
 	return {
-		listenKeys: _listenKeys,
+		captureKeys: _captureKeys,
+		releaseKeys: _releaseKeys
 	}
 })();
 
