@@ -17,7 +17,7 @@ var SocketWar = (function(){
 		var randomLetter = possible.charAt(Math.floor(Math.random() * possible.length));
 		var randomNumber = Math.floor(Math.random() * 5)+1;
 		
-		_player = new SocketWar.Player(randomLetter+randomNumber, true);
+		_player = new SocketWar.Player(randomLetter+randomNumber);
 		_initConnection();
 		
 	}
@@ -45,8 +45,19 @@ var SocketWar = (function(){
 		}
 		
 		_webSocket.onmessage = function(e){
-			var data = JSON.parse(e.data);
-			console.log(data);
+			var message = JSON.parse(e.data);
+			if(message.action === 'join'){
+				var newPlayer = new SocketWar.Player(message.avatar, message.playerId);
+				_grid.addPlayer(newPlayer, message.position)
+			}
+			else if(message.action === 'leave'){
+				_grid.removePlayer(message.playerId);
+			}
+			else{
+				_grid.movePlayer(message.playerId, message.action);
+			}
+			
+			console.log(message);
 		}
 		
 		_webSocket.onclose = function(e){
@@ -70,7 +81,7 @@ var SocketWar = (function(){
 			return;
 		}
 		
-		if(_grid.movePlayer(_player, action)){
+		if(_grid.movePlayer(_player.getId(), action)){
 			_webSocket.send(JSON.stringify(message));
 		}
 	}
@@ -130,20 +141,20 @@ SocketWar.Grid.prototype = (function(){
 			player: player,
 			position: position
 		}
-		
+
 		this._playground.append(player.getDomObject());
 		return _positionatePlayer.call(this, player, position);
 		
 	}
 	
-	var _removePlayer = function(player){
-		if(typeof this._players[player.getId()] === 'undefined'){
+	var _removePlayer = function(playerId){
+		if(typeof this._players[playerId] === 'undefined'){
 			return;
 		}
 		//Removes dom object
-		this._playground.remove(player.getDomObject());
+		this._playground.remove(this._players[playerId].player.getDomObject());
 		//Removes player from the list
-		delete this._players[player.getId()];
+		delete this._players[playerId];
 	}
 	
 	/**
@@ -152,12 +163,16 @@ SocketWar.Grid.prototype = (function(){
 	 * @param String offset
 	 * @returns {undefined}
 	 */
-	var _movePlayer = function(player, direction){
+	var _movePlayer = function(playerId, direction){
+		
+		if(typeof this._players[playerId] === 'undefined'){
+			return;
+		}
 		
 		var offsetMap = {left: {x:-1, y:0}, right: {x:1, y:0}, up: {x:0, y:-1}, down: {x:0, y:1}};
 		var offset = offsetMap[direction];
 		
-		var currentPosition = this._players[player.getId()].position;
+		var currentPosition = this._players[playerId].position;
 		var newPosition = {
 			x: currentPosition.x + offset.x,
 			y: currentPosition.y + offset.y
@@ -168,9 +183,9 @@ SocketWar.Grid.prototype = (function(){
 			return false;
 		}
 		
-		this._players[player.getId()].position = newPosition;
+		this._players[playerId].position = newPosition;
 		
-		return _positionatePlayer.call(this, player, newPosition);
+		return _positionatePlayer.call(this, this._players[playerId].player, newPosition);
 		
 	}
 	
@@ -197,14 +212,14 @@ SocketWar.Grid.prototype = (function(){
 /**
  * Object that represents each player.
  */
-SocketWar.Player = function(name, myself){this.init(name, myself);};
+SocketWar.Player = function(name, id){this.init(name, id);};
 SocketWar.Player.prototype = (function(){
 
-	var _init = function(name, myself){
+	var _init = function(name, id){
 		this._obj = $('<div>').addClass('player').addClass(name);
-		this._id = new Date().getTime();
+		this._id = id || new Date().getTime();
 		this._name = name;
-		if(myself){
+		if(!id){
 			this._obj.addClass('myself');
 		}
 	}
@@ -293,15 +308,3 @@ SocketWar.KeyboardController = (function(){
 //Initializes the game whent the document is ready!
 $(SocketWar.init);
 
-
-/*
-			var conn = new WebSocket('ws://localhost:8080');
-			conn.onopen = function(e) {
-				console.log("Connection established!");
-			};
-
-			conn.onmessage = function(e) {
-				console.log(e.data);
-			};
-
-*/

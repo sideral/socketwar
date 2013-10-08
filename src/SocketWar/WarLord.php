@@ -50,11 +50,21 @@ class WarLord implements MessageComponentInterface {
         }
     }
 
-    public function onClose(ConnectionInterface $conn) {
-        // The connection is closed, remove it, as we can no longer send it messages
-        $this->clients->detach($conn);
+    public function onClose(ConnectionInterface $connection) {
 
-        echo "Connection {$conn->resourceId} has disconnected\n";
+		$message = $this->clients[$connection];
+		$message['action'] = 'leave';
+
+		foreach ($this->clients as $client) {
+            if ($connection !== $client) {
+                // The sender is not the receiver, send to each client connected
+                $client->send(json_encode($message));
+            }
+        }
+
+        // The connection is closed, remove it, as we can no longer send it messages
+        $this->clients->detach($connection);
+        echo "Connection {$connection->resourceId} has disconnected\n";
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e) {
