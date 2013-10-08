@@ -12,22 +12,9 @@ class WarLord implements MessageComponentInterface {
     }
 
     public function onOpen(ConnectionInterface $connection) {
-
-		$message = array(
-			'action' => 'start',
-			'opponents' => array()
-		);
-
-		foreach ($this->clients as $client) {
-			$message['opponents'][] = $this->clients[$client];
-        }
-
-		$connection->send(json_encode($message));
-
 		// Store the new connection to send messages to later
         $this->clients->attach($connection);
         echo "New connection! ({$connection->resourceId})\n";
-
     }
 
     public function onMessage(ConnectionInterface $from, $jsonMessage) {
@@ -38,8 +25,29 @@ class WarLord implements MessageComponentInterface {
 		$message = json_decode($jsonMessage, true);
 
 		if($message['action'] == 'join'){
+			echo "Heelo";
 			unset($message['action']);
 			$this->clients[$from] = $message;
+
+			$response = array(
+				'action' => 'start',
+				'opponents' => array()
+			);
+
+			foreach ($this->clients as $client) {
+				if ($from !== $client) {
+					$response['opponents'][] = $this->clients[$client];
+				}
+			}
+
+			$from->send(json_encode($response));
+
+		}
+		elseif($message['action'] == 'shot'){
+
+		}
+		else{
+			$this->clients[$from]['position'] = $message['position'];
 		}
 
         foreach ($this->clients as $client) {

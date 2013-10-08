@@ -45,6 +45,7 @@ var SocketWar = (function(){
 		}
 		
 		_webSocket.onmessage = function(e){
+			var player, i; 
 			var message = JSON.parse(e.data);
 			if(message.action === 'join'){
 				var newPlayer = new SocketWar.Player(message.avatar, message.playerId);
@@ -52,6 +53,12 @@ var SocketWar = (function(){
 			}
 			else if(message.action === 'leave'){
 				_grid.removePlayer(message.playerId);
+			}
+			else if(message.action === 'start'){
+				for(i=0; i < message.opponents.length; i++){
+					var player = new SocketWar.Player(message.opponents[i].avatar, message.opponents[i].playerId);
+					_grid.addPlayer(player, message.opponents[i].position);
+				}
 			}
 			else{
 				_grid.movePlayer(message.playerId, message.action);
@@ -71,6 +78,8 @@ var SocketWar = (function(){
 		
 	var _onKeyCapture = function(action){
 		
+		var position;
+		
 		var message = {
 			playerId: _player.getId(),
 			action: action
@@ -81,7 +90,8 @@ var SocketWar = (function(){
 			return;
 		}
 		
-		if(_grid.movePlayer(_player.getId(), action)){
+		if(position = _grid.movePlayer(_player.getId(), action)){
+			message.position = position;
 			_webSocket.send(JSON.stringify(message));
 		}
 	}
