@@ -59,6 +59,8 @@ h1{
 	top:0px;
 }
 
+.player.myself{z-index:10000;}
+
 .player.a1{background-position: 7px -3px;}
 .player.a2{background-position: -91px -3px;}
 .player.a3{background-position: -189px -3px;}
