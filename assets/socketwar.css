@@ -8,3 +8,74 @@ and open the template in the editor.
     Author     : sideral
 */
 
+html, body{
+	margin:0px;
+	padding:0px;
+	background:#222;
+}
+
+header{
+	width:1149px;
+	margin:10px auto;
+}
+
+h1{
+	text-align:center;
+	font-weight: bolder;
+	font-size: 48px;
+	color:#eee;
+	font-family: 'Codystar', cursive;
+}
+
+#playground{
+	width:1149px;
+	height:571px;
+	margin:auto;
+	position:relative;
+}
+
+.grid{
+	width:100%;
+	height:100%;
+	background:#fff;
+	border-right:solid #ccc 1px;
+	border-bottom:solid #ccc 1px;
+}
+
+.cell{
+	width:81px;
+	height:94px;
+	border-left:solid #ccc 1px;
+	border-top:solid #ccc 1px;
+	float:left;
+}
+
+.player{
+	width:75px;
+	height: 88px;
+	background: url('sprites.png') no-repeat;
+	position:absolute;
+	left:0px;
+	top:0px;
+}
+
+.player.a1{background-position: 7px -3px;}
+.player.a2{background-position: -91px -3px;}
+.player.a3{background-position: -189px -3px;}
+.player.a4{background-position: -286px -3px;}
+.player.a5{background-position: -384px 1px;}
+.player.b1{background-position: 7px -105px;}
+.player.b2{background-position: -91px -105px;}
+.player.b3{background-position: -189px -105px;}
+.player.b4{background-position: -286px -102px;}
+.player.b5{background-position: -384px -105px;}
+.player.c1{background-position: 7px -205px;}
+.player.c2{background-position: -91px -205px;}
+.player.c3{background-position: -189px -205px;}
+.player.c4{background-position: -286px -205px;}
+.player.c5{background-position: -384px -205px;}
+.player.d1{background-position: 7px -314px;}
+.player.d2{background-position: -91px -314px;}
+.player.d3{background-position: -189px -314px;}
+.player.d4{background-position: -286px -310px;}
+.player.d5{background-position: -384px -314px;}
