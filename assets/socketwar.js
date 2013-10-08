@@ -7,13 +7,19 @@ var SocketWar = (function(){
 	var _grid, _webSocket, _player;
 	
 	var _init = function(){
+		
 		if(!Modernizr.websockets){
 			alert('Your browser does not support Web Sockets! You have not business here!');
 			return;
 		}
-		_player = new SocketWar.Player('b4' + ' myself');
 		
+		var possible = 'abcd';
+		var randomLetter = possible.charAt(Math.floor(Math.random() * possible.length));
+		var randomNumber = Math.floor(Math.random() * 5)+1;
+		
+		_player = new SocketWar.Player(randomLetter+randomNumber, true);
 		_initConnection();
+		
 	}
 	
 	var _initConnection = function(){
@@ -25,20 +31,22 @@ var SocketWar = (function(){
 			_grid = new SocketWar.Grid('#playground', 6, 14);
 			var position = _grid.addPlayer(_player);
 			
-			var move = {
+			var message = {
 				playerId: _player.getId(),
 				action: 'join',
-				position: position
+				position: position,
+				avatar: _player.getName()
 			};
 			
-			_webSocket.send(JSON.stringify(move));
+			_webSocket.send(JSON.stringify(message));
 			
 			SocketWar.KeyboardController.captureKeys(_onKeyCapture);
 			
 		}
 		
 		_webSocket.onmessage = function(e){
-			
+			var data = JSON.parse(e.data);
+			console.log(data);
 		}
 		
 		_webSocket.onclose = function(e){
@@ -52,18 +60,18 @@ var SocketWar = (function(){
 		
 	var _onKeyCapture = function(action){
 		
-		var move = {
+		var message = {
 			playerId: _player.getId(),
 			action: action
 		};
 		
 		if(action === 'shot'){
-			_webSocket.send(JSON.stringify(move));
+			_webSocket.send(JSON.stringify(message));
 			return;
 		}
 		
 		if(_grid.movePlayer(_player, action)){
-			_webSocket.send(JSON.stringify(move));
+			_webSocket.send(JSON.stringify(message));
 		}
 	}
 	
@@ -156,7 +164,7 @@ SocketWar.Grid.prototype = (function(){
 		}
 		
 		//Check boudaries
-		if(newPosition.x == this._cols || newPosition.x < 0 || newPosition.y == this._rows || newPosition.y < 0){
+		if(newPosition.x === this._cols || newPosition.x < 0 || newPosition.y === this._rows || newPosition.y < 0){
 			return false;
 		}
 		
@@ -189,12 +197,16 @@ SocketWar.Grid.prototype = (function(){
 /**
  * Object that represents each player.
  */
-SocketWar.Player = function(cssClass){this.init(cssClass);};
+SocketWar.Player = function(name, myself){this.init(name, myself);};
 SocketWar.Player.prototype = (function(){
 
-	var _init = function(cssClass){
-		this._obj = $('<div>').addClass('player').addClass(cssClass);
+	var _init = function(name, myself){
+		this._obj = $('<div>').addClass('player').addClass(name);
 		this._id = new Date().getTime();
+		this._name = name;
+		if(myself){
+			this._obj.addClass('myself');
+		}
 	}
 	
 	var _getId = function(){
@@ -205,10 +217,15 @@ SocketWar.Player.prototype = (function(){
 		return this._obj;
 	}
 	
+	var _getName = function(){
+		return this._name;
+	}
+	
 	return {
 		init: _init,
 		getId: _getId,
-		getDomObject: _getDomObject
+		getDomObject: _getDomObject,
+		getName: _getName
 	}
 	
 })();

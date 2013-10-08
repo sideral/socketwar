@@ -11,22 +11,41 @@ class WarLord implements MessageComponentInterface {
         $this->clients = new \SplObjectStorage;
     }
 
-    public function onOpen(ConnectionInterface $conn) {
-        // Store the new connection to send messages to later
-        $this->clients->attach($conn);
+    public function onOpen(ConnectionInterface $connection) {
 
-        echo "New connection! ({$conn->resourceId})\n";
+		$message = array(
+			'action' => 'start',
+			'opponents' => array()
+		);
+
+		foreach ($this->clients as $client) {
+			$message['opponents'][] = $this->clients[$client];
+        }
+
+		$connection->send(json_encode($message));
+
+		// Store the new connection to send messages to later
+        $this->clients->attach($connection);
+        echo "New connection! ({$connection->resourceId})\n";
+
     }
 
-    public function onMessage(ConnectionInterface $from, $msg) {
+    public function onMessage(ConnectionInterface $from, $jsonMessage) {
         $numRecv = count($this->clients) - 1;
         echo sprintf('Connection %d sending message "%s" to %d other connection%s' . "\n"
-            , $from->resourceId, $msg, $numRecv, $numRecv == 1 ? '' : 's');
+            , $from->resourceId, $jsonMessage, $numRecv, $numRecv == 1 ? '' : 's');
+
+		$message = json_decode($jsonMessage, true);
+
+		if($message['action'] == 'join'){
+			unset($message['action']);
+			$this->clients[$from] = $message;
+		}
 
         foreach ($this->clients as $client) {
             if ($from !== $client) {
                 // The sender is not the receiver, send to each client connected
-                $client->send($msg);
+                $client->send($jsonMessage);
             }
         }
     }
@@ -34,7 +53,7 @@ class WarLord implements MessageComponentInterface {
     public function onClose(ConnectionInterface $conn) {
         // The connection is closed, remove it, as we can no longer send it messages
         $this->clients->detach($conn);
-		
+
         echo "Connection {$conn->resourceId} has disconnected\n";
     }
 
