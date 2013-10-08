@@ -4,29 +4,41 @@
  */
 var SocketWar = (function(){
 	
-	var _grid = null, _webSocket, _myPlayer;
+	var _grid, _webSocket, _player;
 	
 	var _init = function(){
 		if(!Modernizr.websockets){
 			alert('Your browser does not support Web Sockets! You have not business here!');
 			return;
 		}
-		_prepareCharacter('b4');
-		_setupWebSocket();
+		_player = new SocketWar.Player('b4' + ' myself');
+		
+		_initConnection();
 	}
 	
-	var _prepareCharacter = function(fighter){
-		_myPlayer = new SocketWar.Player(fighter + ' myself');
-		_grid = new SocketWar.Grid('#playground', 6, 14);
-		_grid.addPlayer(_myPlayer);
-	}
-	
-	var _setupWebSocket = function(){
+	var _initConnection = function(){
 		//With the player selected, let's initialize our WebSocket object. 
 		_webSocket = new WebSocket("ws://localhost:8080");
 		
 		_webSocket.onopen = function(e){
+			
+			_grid = new SocketWar.Grid('#playground', 6, 14);
+			var position = _grid.addPlayer(_player);
+			
+			var move = {
+				playerId: _player.getId(),
+				action: 'join',
+				position: position
+			};
+			
+			_webSocket.send(JSON.stringify(move));
+			
 			SocketWar.KeyboardController.captureKeys(_onKeyCapture);
+			
+		}
+		
+		_webSocket.onmessage = function(e){
+			
 		}
 		
 		_webSocket.onclose = function(e){
@@ -38,17 +50,21 @@ var SocketWar = (function(){
 		}
 	}
 		
-	var _onKeyCapture = function(direction){
-		if(direction === 'shot'){
-			return false;
-		}
-		var offsetMap = {
-			left: {x:-1, y:0},
-			right: {x:1, y:0},
-			up: {x:0, y:-1},
-			down: {x:0, y:1}
+	var _onKeyCapture = function(action){
+		
+		var move = {
+			playerId: _player.getId(),
+			action: action
 		};
-		_grid.movePlayer(_myPlayer, offsetMap[direction]);
+		
+		if(action === 'shot'){
+			_webSocket.send(JSON.stringify(move));
+			return;
+		}
+		
+		if(_grid.movePlayer(_player, action)){
+			_webSocket.send(JSON.stringify(move));
+		}
 	}
 	
 	return {
@@ -125,10 +141,13 @@ SocketWar.Grid.prototype = (function(){
 	/**
 	 * 
 	 * @param SocketWar.Player player
-	 * @param Object offset
+	 * @param String offset
 	 * @returns {undefined}
 	 */
-	var _movePlayer = function(player, offset){
+	var _movePlayer = function(player, direction){
+		
+		var offsetMap = {left: {x:-1, y:0}, right: {x:1, y:0}, up: {x:0, y:-1}, down: {x:0, y:1}};
+		var offset = offsetMap[direction];
 		
 		var currentPosition = this._players[player.getId()].position;
 		var newPosition = {
@@ -138,10 +157,11 @@ SocketWar.Grid.prototype = (function(){
 		
 		//Check boudaries
 		if(newPosition.x == this._cols || newPosition.x < 0 || newPosition.y == this._rows || newPosition.y < 0){
-			return;
+			return false;
 		}
 		
 		this._players[player.getId()].position = newPosition;
+		
 		return _positionatePlayer.call(this, player, newPosition);
 		
 	}
@@ -174,7 +194,7 @@ SocketWar.Player.prototype = (function(){
 
 	var _init = function(cssClass){
 		this._obj = $('<div>').addClass('player').addClass(cssClass);
-		this._id = ++SocketWar.Player.Count;
+		this._id = new Date().getTime();
 	}
 	
 	var _getId = function(){
@@ -192,8 +212,6 @@ SocketWar.Player.prototype = (function(){
 	}
 	
 })();
-
-SocketWar.Player.Count = 0;
 
 SocketWar.KeyboardController = (function(){
 	//Prevents holding a key to trigger the event very fast.
