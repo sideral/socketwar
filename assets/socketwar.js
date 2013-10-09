@@ -3,7 +3,7 @@
  */
 var SocketWar = (function(){
 	
-	var grid, webSocket, myPlayer;
+	var grid, webSocket, myPlayer, selector;
 	
 	var init = function(){
 		
@@ -12,44 +12,45 @@ var SocketWar = (function(){
 			return;
 		}
 		
-		var possible = 'abcd';
-		var randomLetter = possible.charAt(Math.floor(Math.random() * possible.length));
-		var randomNumber = Math.floor(Math.random() * 5)+1;
+		selector = new SocketWar.CharacterSelector('#playground', startGame);
 		
-		myPlayer = new SocketWar.Player(randomLetter+randomNumber);
-		
+	}
+	
+	var startGame = function(playerName){
+		myPlayer = new SocketWar.Player(playerName);
 		initWebSocket();
-		
 	}
 	
 	var initWebSocket = function(){
 		webSocket = new WebSocket("ws://localhost:8080");
-		webSocket.onopen = startGame;
-		webSocket.onclose = endGame;
-		webSocket.onerror = onError;
-		webSocket.onmessage = receiveMessage;
-	}
-	
-	var startGame = function(){
-		var position, action;
-		grid = new SocketWar.Grid('#playground', 6, 14);
 		
-		position = grid.addPlayer(myPlayer);
-		action = myPlayer.createAction('join');
+		webSocket.onopen = function(){
+			var action;
+
+			grid = new SocketWar.Grid('#playground', 6, 14);
+			grid.addPlayer(myPlayer);
+			
+			action = myPlayer.createAction('join');
+			webSocket.send(JSON.stringify(action));
+
+			SocketWar.KeyboardInput.startCapturing(onKeyboardAction);
+		};
+	
+		webSocket.onerror = function(){
+			alert('Error connecting! You lose!');
+		};
 		
-		webSocket.send(JSON.stringify(action));
+		webSocket.onmessage = function(e){
+			var playerAction = JSON.parse(e.data);
+			grid.processAction(playerAction);
+		};
 		
-		SocketWar.KeyboardInput.startCapturing(onKeyboardAction);
+		webSocket.onclose = function(){
+			SocketWar.KeyboardInput.stopCapturing();
+		};
+		
 	}
-	
-	var endGame = function(){
-		SocketWar.KeyboardInput.stopCapturing();
-	}
-	
-	var onError = function(){
-		alert('Error connecting! You lose!');
-	}
-	
+
 	var onKeyboardAction = function(action){
 		var playerAction;
 		if(action === 'shot'){
@@ -62,11 +63,6 @@ var SocketWar = (function(){
 		webSocket.send(JSON.stringify(playerAction));
 	}
 	
-	var receiveMessage = function(e){
-		var playerAction = JSON.parse(e.data);
-		grid.processAction(playerAction);
-	}
-		
 	return {
 		init: init
 	}
@@ -97,7 +93,7 @@ SocketWar.Grid.prototype = (function(){
 			for(var j = 0; j < cols; j++){
 				this.obj.append($('<div>').addClass('cell'));
 			}
-		}grid
+		}
 		this.playground.html(this.obj);
 		
 		var domCell = this.obj.children().first();	
@@ -165,7 +161,7 @@ SocketWar.Grid.prototype = (function(){
 		}
 		
 		//Check boudaries
-		if(newPosition.x === this._cols || newPosition.x < 0 || newPosition.y === this._rows || newPosition.y < 0){
+		if(newPosition.x === this.cols || newPosition.x < 0 || newPosition.y === this.rows || newPosition.y < 0){
 			return false;
 		}
 		
@@ -210,7 +206,6 @@ SocketWar.Grid.prototype = (function(){
 				break;
 		}
 
-			
 	}
 	
 	var initialSetup = function(players){
@@ -285,6 +280,50 @@ SocketWar.Player.prototype = (function(){
 		getPosition: getPosition
 	}
 	
+})();
+
+SocketWar.CharacterSelector = function(playground, callback){this.init(playground, callback);}
+SocketWar.CharacterSelector.prototype = (function(){
+	
+	var obj, callback;
+	
+	var init = function(playground, handler){
+		var character;
+		
+		obj = $('<div>').addClass('character-selector');
+		
+		obj.append($('<h2>Select your soldier</h2>'));
+		
+		var rows = ['a','b','c','d'];
+		
+		for(var i=0; i < rows.length; i++){
+			for(var j=1; j <= 5; j++){
+				character = $('<div>').addClass('player').addClass(rows[i]+j).data('name',rows[i]+j).on('click', function(){
+					$(this).addClass('selected');
+					$(this).siblings().addClass('disabled').off('click');
+					$(this).parent().append($('<a href="#" class="start">START</a>').click(startGame));
+				});
+				obj.append(character);
+			}
+		}
+		
+		$(playground).html(obj);
+		
+		callback = handler;
+		
+	}
+	
+	var startGame = function(e){
+		e.preventDefault();
+		obj.fadeOut(600, function(){
+			var playerName = $('.player.selected').data('name');
+			callback(playerName);
+		});
+	}
+	
+	return {
+		init: init
+	};
 })();
 
 SocketWar.KeyboardInput = (function(){
