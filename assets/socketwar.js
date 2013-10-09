@@ -1,10 +1,9 @@
-
 /**
  * Our SocketWar game controller!
  */
 var SocketWar = (function(){
 	
-	var grid, webSocket, player;
+	var grid, webSocket, myPlayer;
 	
 	var init = function(){
 		
@@ -17,7 +16,7 @@ var SocketWar = (function(){
 		var randomLetter = possible.charAt(Math.floor(Math.random() * possible.length));
 		var randomNumber = Math.floor(Math.random() * 5)+1;
 		
-		player = new SocketWar.Player(randomLetter+randomNumber);
+		myPlayer = new SocketWar.Player(randomLetter+randomNumber);
 		
 		initWebSocket();
 		
@@ -33,11 +32,11 @@ var SocketWar = (function(){
 	
 	var startGame = function(){
 		var position, action;
-		
 		grid = new SocketWar.Grid('#playground', 6, 14);
-		position = grid.addPlayer(player);
 		
-		action = player.createAction('join');
+		position = grid.addPlayer(myPlayer);
+		action = myPlayer.createAction('join');
+		
 		webSocket.send(JSON.stringify(action));
 		
 		SocketWar.KeyboardInput.startCapturing(onKeyboardAction);
@@ -52,38 +51,20 @@ var SocketWar = (function(){
 	}
 	
 	var onKeyboardAction = function(action){
-		var action;
+		var playerAction;
 		if(action === 'shot'){
-			action = player.createAction('shot');
+			playerAction = myPlayer.createAction('shot');
 		}
 		else{
-			grid.movePlayer(player, action);
-			action = player.createAction('move', {direction: action});
+			grid.movePlayer(myPlayer, action);
+			playerAction = myPlayer.createAction('move', {direction: action});
 		}
-		webSocket.send(JSON.stringify(action));
+		webSocket.send(JSON.stringify(playerAction));
 	}
 	
 	var receiveMessage = function(e){
-		var player, i; 
-		var message = JSON.parse(e.data);
-		if(message.action === 'join'){
-			var newPlayer = new SocketWar.Player(message.avatar, message.playerId);
-			grid.addPlayer(newPlayer, message.position)
-		}
-		else if(message.action === 'leave'){
-			grid.removePlayer(message.playerId);
-		}
-		else if(message.action === 'start'){
-			for(i=0; i < message.opponents.length; i++){
-				var player = new SocketWar.Player(message.opponents[i].avatar, message.opponents[i].playerId);
-				grid.addPlayer(player, message.opponents[i].position);
-			}
-		}
-		else{
-			grid.movePlayer(message.playerId, message.action);
-		}
-
-		console.log(message);
+		var playerAction = JSON.parse(e.data);
+		grid.processAction(playerAction);
 	}
 		
 	return {
@@ -91,28 +72,6 @@ var SocketWar = (function(){
 	}
 	
 })();
-
-
-
-
-SocketWar.Action = function(type, playerId, position, character){this.init(type, playerId, position, character)}
-SocketWar.Action.prototype = (function(){
-	
-	var init = function(type, playerId, position, character){
-		
-	}
-	
-
-	return {
-		init: init()
-	}
-	
-})();
-
-SocketWar.Action.fromResponse = function(response){
-	var message = JSON.parse(response);
-	return new SocketWar.Action();
-}
 
 /**
  * Object that represents the game grid.
@@ -138,7 +97,7 @@ SocketWar.Grid.prototype = (function(){
 			for(var j = 0; j < cols; j++){
 				this.obj.append($('<div>').addClass('cell'));
 			}
-		}
+		}grid
 		this.playground.html(this.obj);
 		
 		var domCell = this.obj.children().first();	
@@ -161,7 +120,14 @@ SocketWar.Grid.prototype = (function(){
 	 * @returns Array
 	 */
 	var addPlayer = function(player, pos){
-
+		
+		if(typeof this.players[player.getId()] !== 'undefined'){
+			if(typeof pos === 'undefined'){
+				pos = player.getPosition();
+			}
+			this.removePlayer(player);
+		}
+		
 		//Generates random position if not found.
 		var position = pos || {x:Math.floor(Math.random() * this.cols), y:Math.floor(Math.random() * this.rows)}
 		
@@ -216,11 +182,43 @@ SocketWar.Grid.prototype = (function(){
 		return position
 	}
 		
-	var removePlayer = function(playerId){
+	var removePlayer = function(player){
 		//Removes dom object
-		this.playground.remove(this.players[playerId].getDomObject());
+		this.playground.remove(player.getDomObject());
 		//Removes player from the list
-		delete this.players[playerId];
+		delete this.players[player.getId()];
+	}
+	
+	var processPlayerAction = function(playerAction){
+		
+		var player = this.getPlayer(playerAction.playerId);
+		
+		if(!player){
+			player = new SocketWar.Player(playerAction.name, playerAction.playerId);
+			this.addPlayer(player, playerAction.position);
+		}
+			
+		switch(playerAction.action){
+			case 'leave':
+				this.removePlayer(player);
+				break;
+			case 'start':
+				initialSetup.call(this, playerAction.opponents);
+				break;
+			case 'move':
+				this.movePlayer(player, playerAction.direction);
+				break;
+		}
+
+			
+	}
+	
+	var initialSetup = function(players){
+		var player, i;
+		for(i=0; i < players.length; i++){
+			player = new SocketWar.Player(players[i].name, players[i].playerId);
+			this.addPlayer(player, players[i].position);
+		}
 	}
 	
 	return {
@@ -260,21 +258,13 @@ SocketWar.Player.prototype = (function(){
 	}
 	
 	var createAction = function(action, details){
-		if(typeof details === 'undefined'){
-			details = {}
-		}
-		
-		jQuery.extend(details, {
-			position: this.position,
-			name: this.name
-		});
-		
-		var message = {
+		return {
 			playerId: this.id,
 			action: action,
+			position: this.position,
+			name: this.name,
 			details: details
 		};
-		return message;
 	}
 	
 	var setPosition = function(position){
@@ -296,10 +286,6 @@ SocketWar.Player.prototype = (function(){
 	}
 	
 })();
-
-SocketWar.Player.createFromAction = function(action){
-	
-};
 
 SocketWar.KeyboardInput = (function(){
 	//Prevents holding a key to trigger the event very fast.
