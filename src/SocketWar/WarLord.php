@@ -5,73 +5,45 @@ use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
 
 class WarLord implements MessageComponentInterface {
-    protected $clients;
+    protected $playerConns;
 
     public function __construct() {
-        $this->clients = new \SplObjectStorage;
+        $this->playerConns = new \SplObjectStorage;
     }
 
     public function onOpen(ConnectionInterface $connection) {
 		// Store the new connection to send messages to later
-        $this->clients->attach($connection);
-        echo "New connection! ({$connection->resourceId})\n";
+        $this->playerConns->attach($connection);
+        $this->_echo("New connection! ({$connection->resourceId})\n");
     }
 
-    public function onMessage(ConnectionInterface $from, $jsonMessage) {
-        $numRecv = count($this->clients) - 1;
-        echo sprintf('Connection %d sending message "%s" to %d other connection%s' . "\n"
-            , $from->resourceId, $jsonMessage, $numRecv, $numRecv == 1 ? '' : 's');
+    public function onMessage(ConnectionInterface $connection, $message) {
 
-		$message = json_decode($jsonMessage, true);
+        $numRecv = count($this->playerConns) - 1;
+        $this->_echo(sprintf('Connection %d sending message "%s" to %d other connection%s' . "\n"
+            , $connection->resourceId, $message, $numRecv, $numRecv == 1 ? '' : 's'));
 
-		if($message['action'] == 'join'){
-			echo "Heelo";
-			unset($message['action']);
-			$this->clients[$from] = $message;
-
-			$response = array(
-				'action' => 'start',
-				'opponents' => array()
-			);
-
-			foreach ($this->clients as $client) {
-				if ($from !== $client) {
-					$response['opponents'][] = $this->clients[$client];
-				}
-			}
-
-			$from->send(json_encode($response));
-
-		}
-		elseif($message['action'] == 'shot'){
-
-		}
-		else{
-			$this->clients[$from]['position'] = $message['position'];
+		$action = json_decode($message, true);
+		switch($action){
+			case 'join':
+				$this->_joinPlayer($connection, $action);
+				break;
+			case 'shot':
+				break;
+			case 'move':
+				$this->_movePlayer($connection, $action);
+				break;
 		}
 
-        foreach ($this->clients as $client) {
-            if ($from !== $client) {
-                // The sender is not the receiver, send to each client connected
-                $client->send($jsonMessage);
-            }
-        }
     }
 
     public function onClose(ConnectionInterface $connection) {
-
-		$message = $this->clients[$connection];
-		$message['action'] = 'leave';
-
-		foreach ($this->clients as $client) {
-            if ($connection !== $client) {
-                // The sender is not the receiver, send to each client connected
-                $client->send(json_encode($message));
-            }
-        }
+		$action = $this->playerConns[$connection];
+		$action['action'] = 'leave';
+		$this->_notifyOthers($action, $connection);
 
         // The connection is closed, remove it, as we can no longer send it messages
-        $this->clients->detach($connection);
+        $this->playerConns->detach($connection);
         echo "Connection {$connection->resourceId} has disconnected\n";
     }
 
@@ -79,4 +51,43 @@ class WarLord implements MessageComponentInterface {
         echo "An error has occurred: {$e->getMessage()}\n";
         $conn->close();
     }
+
+	protected function _notifyOthers($action, $connection){
+		foreach ($this->playerConns as $playerConn) {
+            if ($connection !== $playerConn) {
+                // The sender is not the receiver, send to each client connected
+                $playerConn->send($action);
+            }
+        }
+	}
+
+	protected function _echo($message){
+		echo $message;
+	}
+
+	protected function _joinPlayer(ConnectionInterface $connection, $action){
+
+		$this->playerConns[$connection] = $action;
+
+		//Create a list of the other players in the game.
+		$otherPlayers = array();
+		foreach ($this->playerConns as $playerConn) {
+			if ($connection !== $playerConn) {
+				$otherPlayers[] = $this->playerConns[$playerConn];
+			}
+		}
+
+		//Send the list to the current player so that it can add them to its grid.
+		$response = array('action' => 'start', 'otherPlayers' => $otherPlayers);
+		$connection->send(json_encode($response));
+
+		$this->_notifyOthers($action, $connection);
+
+	}
+
+	protected function _movePlayer(ConnectionInterface $connection, $action){
+		$this->playerConns[$connection]['position'] = $action['position'];
+		$this->_notifyOthers($action, $connection);
+	}
+
 }

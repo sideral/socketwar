@@ -187,22 +187,23 @@ SocketWar.Grid.prototype = (function(){
 	
 	var processPlayerAction = function(playerAction){
 		
-		var player = this.getPlayer(playerAction.playerId);
-		
-		if(!player){
-			player = new SocketWar.Player(playerAction.name, playerAction.playerId);
-			this.addPlayer(player, playerAction.position);
+		if(typeof playerAction.playerId !== 'undefined'){
+			var player = this.getPlayer(playerAction.playerId);
+			if(!player){
+				player = new SocketWar.Player(playerAction.name, playerAction.playerId);
+				this.addPlayer(player, playerAction.position);
+			}
 		}
-			
+	
 		switch(playerAction.action){
-			case 'leave':
-				this.removePlayer(player);
-				break;
 			case 'start':
-				initialSetup.call(this, playerAction.opponents);
+				initialSetup.call(this, playerAction.otherPlayers);
 				break;
 			case 'move':
 				this.movePlayer(player, playerAction.direction);
+				break;
+			case 'leave':
+				this.removePlayer(player);
 				break;
 		}
 
