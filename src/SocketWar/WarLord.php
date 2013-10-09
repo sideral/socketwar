@@ -24,6 +24,7 @@ class WarLord implements MessageComponentInterface {
 				$this->_joinPlayer($connection, $action);
 				break;
 			case 'shot':
+				$this->_shotPlayer($connection, $action);
 				break;
 			case 'move':
 				$this->_movePlayer($connection, $action);
@@ -74,6 +75,14 @@ class WarLord implements MessageComponentInterface {
 		$current = $this->playerConns[$connection];
 		$current['position'] = $action['position'];
 		$this->playerConns[$connection] = $current;
+		$this->_notifyOthers($action, $connection);
+	}
+
+	protected function _shotPlayer(ConnectionInterface $connection, array $action){
+		//Avoid race conditions.
+		if(!isset($this->playerConns[$connection])){
+			return;
+		}
 		$this->_notifyOthers($action, $connection);
 	}
 

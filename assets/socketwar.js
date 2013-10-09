@@ -37,15 +37,23 @@ var SocketWar = (function(){
 		};
 	
 		webSocket.onerror = function(){
-			$('#playground').html($('<div>').addClass('error').html('Oh no!! WebSocket connection error! Now what?'));
+			alert('WebSocket connection error!');
 		};
 		
 		webSocket.onmessage = function(e){
 			var playerAction = JSON.parse(e.data);
 			grid.processPlayerAction(playerAction);
+			
+			if(playerAction.action === 'shot'){
+				if(playerAction.position.x === myPlayer.position.x 
+					&& playerAction.position.y === myPlayer.position.y){
+					webSocket.close();
+				}
+			}
 		};
 		
-		webSocket.onclose = function(){
+		webSocket.onclose = function(e){
+			showFinalMessage('GAME OVER');
 			SocketWar.KeyboardInput.stopCapturing();
 		};
 		
@@ -55,12 +63,17 @@ var SocketWar = (function(){
 		var playerAction;
 		if(action === 'shot'){
 			playerAction = myPlayer.createAction('shot');
+			myPlayer.shot();
 		}
 		else{
 			grid.movePlayer(myPlayer, action);
 			playerAction = myPlayer.createAction('move', {direction: action});
 		}
 		webSocket.send(JSON.stringify(playerAction));
+	}
+	
+	var showFinalMessage = function(message){
+		$('#playground').html($('<div>').addClass('error').html(message));
 	}
 	
 	return {
@@ -202,9 +215,12 @@ SocketWar.Grid.prototype = (function(){
 			case 'move':
 				this.movePlayer(player, playerAction.details.direction);
 				break;
+			case 'shot':
+				player.shot();
+				break;
 			case 'leave':
 				this.removePlayer(player);
-				break;
+				break;		
 		}
 
 	}
@@ -272,6 +288,12 @@ SocketWar.Player.prototype = (function(){
 		return this.position;
 	}
 	
+	var shot = function(){
+		this.obj.addClass('shot');
+		var self = this.obj;
+		setTimeout(function(){self.removeClass('shot');}, 90);
+	}
+	
 	return {
 		init: init,
 		getId: getId,
@@ -279,7 +301,8 @@ SocketWar.Player.prototype = (function(){
 		getName: getName,
 		createAction: createAction,
 		setPosition: setPosition,
-		getPosition: getPosition
+		getPosition: getPosition,
+		shot: shot
 	}
 	
 })();

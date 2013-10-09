@@ -129,6 +129,10 @@ h2{
 .player.d4{background-position: -286px -310px;}
 .player.d5{background-position: -384px -314px;}
 
+.player.shot{
+	background-color:red;
+}
+
 .start {
 	-moz-box-shadow:inset 0px 1px 0px 0px #f9eca0;
 	-webkit-box-shadow:inset 0px 1px 0px 0px #f9eca0;
