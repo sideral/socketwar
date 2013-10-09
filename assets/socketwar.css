@@ -42,6 +42,15 @@ h2{
 	position:relative;
 }
 
+.error{
+	margin:150px auto;
+	width:600px;
+	color:#d10000;
+	font-size:50px;
+	text-align:center;
+	font-family: 'Creepster', serif;
+}
+
 .character-selector{
 	width: 385px;
 	margin: 50px auto;

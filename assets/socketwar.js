@@ -37,12 +37,12 @@ var SocketWar = (function(){
 		};
 	
 		webSocket.onerror = function(){
-			alert('Error connecting! You lose!');
+			$('#playground').html($('<div>').addClass('error').html('Oh no!! WebSocket connection error! Now what?'));
 		};
 		
 		webSocket.onmessage = function(e){
 			var playerAction = JSON.parse(e.data);
-			grid.processAction(playerAction);
+			grid.processPlayerAction(playerAction);
 		};
 		
 		webSocket.onclose = function(){
@@ -116,7 +116,7 @@ SocketWar.Grid.prototype = (function(){
 	 * @returns Array
 	 */
 	var addPlayer = function(player, pos){
-		
+
 		if(typeof this.players[player.getId()] !== 'undefined'){
 			if(typeof pos === 'undefined'){
 				pos = player.getPosition();
@@ -180,8 +180,8 @@ SocketWar.Grid.prototype = (function(){
 		
 	var removePlayer = function(player){
 		//Removes dom object
-		this.playground.remove(player.getDomObject());
-		//Removes player from the list
+		player.getDomObject().remove();
+		//Removes the reference
 		delete this.players[player.getId()];
 	}
 	
@@ -200,7 +200,7 @@ SocketWar.Grid.prototype = (function(){
 				initialSetup.call(this, playerAction.otherPlayers);
 				break;
 			case 'move':
-				this.movePlayer(player, playerAction.direction);
+				this.movePlayer(player, playerAction.details.direction);
 				break;
 			case 'leave':
 				this.removePlayer(player);
@@ -222,7 +222,8 @@ SocketWar.Grid.prototype = (function(){
 		addPlayer: addPlayer,
 		removePlayer: removePlayer,
 		movePlayer: movePlayer,
-		getPlayer: getPlayer
+		getPlayer: getPlayer,
+		processPlayerAction: processPlayerAction
 	};
 })();
 
@@ -293,7 +294,7 @@ SocketWar.CharacterSelector.prototype = (function(){
 		
 		obj = $('<div>').addClass('character-selector');
 		
-		obj.append($('<h2>Select your soldier</h2>'));
+		obj.append($('<h2>Select your Warrior</h2>'));
 		
 		var rows = ['a','b','c','d'];
 		

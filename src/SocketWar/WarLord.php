@@ -18,13 +18,8 @@ class WarLord implements MessageComponentInterface {
     }
 
     public function onMessage(ConnectionInterface $connection, $message) {
-
-        $numRecv = count($this->playerConns) - 1;
-        $this->_echo(sprintf('Connection %d sending message "%s" to %d other connection%s' . "\n"
-            , $connection->resourceId, $message, $numRecv, $numRecv == 1 ? '' : 's'));
-
 		$action = json_decode($message, true);
-		switch($action){
+		switch($action['action']){
 			case 'join':
 				$this->_joinPlayer($connection, $action);
 				break;
@@ -34,7 +29,6 @@ class WarLord implements MessageComponentInterface {
 				$this->_movePlayer($connection, $action);
 				break;
 		}
-
     }
 
     public function onClose(ConnectionInterface $connection) {
@@ -52,20 +46,11 @@ class WarLord implements MessageComponentInterface {
         $conn->close();
     }
 
-	protected function _notifyOthers($action, $connection){
-		foreach ($this->playerConns as $playerConn) {
-            if ($connection !== $playerConn) {
-                // The sender is not the receiver, send to each client connected
-                $playerConn->send($action);
-            }
-        }
-	}
-
 	protected function _echo($message){
 		echo $message;
 	}
 
-	protected function _joinPlayer(ConnectionInterface $connection, $action){
+	protected function _joinPlayer(ConnectionInterface $connection, array $action){
 
 		$this->playerConns[$connection] = $action;
 
@@ -85,9 +70,25 @@ class WarLord implements MessageComponentInterface {
 
 	}
 
-	protected function _movePlayer(ConnectionInterface $connection, $action){
-		$this->playerConns[$connection]['position'] = $action['position'];
+	protected function _movePlayer(ConnectionInterface $connection, array $action){
+		$current = $this->playerConns[$connection];
+		$current['position'] = $action['position'];
+		$this->playerConns[$connection] = $current;
 		$this->_notifyOthers($action, $connection);
+	}
+
+	protected function _notifyOthers(array $action, ConnectionInterface $connection){
+		$message = json_encode($action);
+		$numRecv = count($this->playerConns) - 1;
+        $this->_echo(sprintf('Connection %d sending message "%s" to %d other connection%s' . "\n"
+            , $connection->resourceId, $message, $numRecv, $numRecv == 1 ? '' : 's'));
+
+		foreach ($this->playerConns as $playerConn) {
+            if ($connection !== $playerConn) {
+                // The sender is not the receiver, send to each client connected
+                $playerConn->send($message);
+            }
+        }
 	}
 
 }
